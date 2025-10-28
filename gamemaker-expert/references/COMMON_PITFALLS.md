@@ -14,8 +14,9 @@ This guide covers the most common mistakes GameMaker developers make and how to 
 6. [Collision Detection](#collision-detection)
 7. [Networking Issues](#networking-issues)
 8. [Shader Issues](#shader-issues)
-9. [Event Order Confusion](#event-order-confusion)
-10. [Common Logic Errors](#common-logic-errors)
+9. [Rendering Issues](#rendering-issues)
+10. [Event Order Confusion](#event-order-confusion)
+11. [Common Logic Errors](#common-logic-errors)
 
 ---
 
@@ -590,6 +591,14 @@ instance_create_depth(x, y, 0, objBullet);  // Create new bullet
 with (objBulletPool) {
     var _bullet = get_bullet(other.x, other.y);
 }
+
+// ✅ BEST: For new instances, use struct parameter (no with/other needed!)
+var _bullet = instance_create_depth(x, y, -100, objBullet, {
+    speed: shoot_speed,
+    direction: image_angle,
+    owner: id
+});
+// Variables set BEFORE Create event runs - cleaner than with()/other
 ```
 
 See [GML_REFERENCE.md - Object Pooling](#object-pooling) for implementation.
@@ -898,45 +907,186 @@ void main() {
 
 ---
 
+## Rendering Issues
+
+### Problem: Font State Bleeding Between Objects
+
+**Symptom**:
+- Text uses wrong font unexpectedly
+- Text appears correct AFTER opening menus, but wrong at game start
+- Some objects' text looks correct while others use default font
+
+**Cause**: Not setting font at the beginning of Draw GUI event, causing font state to bleed from other objects
+
+**How GameMaker Font State Works**:
+1. **Default State**: Without `draw_set_font()`, GameMaker uses the default system font
+2. **Global State**: `draw_set_font(fntA)` affects ALL subsequent drawing until another `draw_set_font()` call
+3. **Bleed Across Objects**: If objMenu calls `draw_set_font(fntMenu)`, then objHUD's draw event runs without setting font, objHUD uses fntMenu (unintended!)
+
+**Example of the Problem**:
+```gml
+// === objMenu Draw GUI Event ===
+draw_set_font(fntMenuLarge);
+draw_text(100, 50, "Main Menu");  // Uses fntMenuLarge ✅
+
+// === objHUD Draw GUI Event (runs AFTER objMenu) ===
+// ❌ NO draw_set_font() call!
+draw_text(10, 10, "HP: 100");  // Uses fntMenuLarge from objMenu ❌ (unintended!)
+```
+
+**Why Opening Menus "Fixes" It**:
+- Menu's draw event sets a font
+- That font bleeds to other draw events
+- Creates illusion that fonts are working (but only by accident)
+
+**Solution**: ALWAYS set font at the top of EVERY draw event:
+
+```gml
+/// @description objHUD - Draw GUI Event - CORRECT
+// ✅ Set font FIRST, EVERY TIME
+draw_set_font(fntGameFont);
+
+// Now guaranteed to use fntGameFont, regardless of other objects' fonts
+draw_text(10, 10, "HP: " + string(player.hp));
+draw_text(10, 30, "MP: " + string(player.mana));
+```
+
+```gml
+/// @description objMenu - Draw GUI Event - CORRECT
+// ✅ Set font explicitly
+draw_set_font(fntMenuLarge);
+
+draw_text(100, 50, "Main Menu");
+```
+
+**Best Practice**:
+- Set font at the TOP of EVERY Draw_64.gml (Draw GUI) event
+- Set font at the TOP of EVERY Draw_0.gml (Draw) event
+- NEVER assume font state from other objects or previous frames
+- Treat font state as global and volatile (like `draw_set_color()`, `draw_set_alpha()`)
+
+**Related Global States** (also need explicit setting):
+- `draw_set_color()` - Color bleeds between objects
+- `draw_set_alpha()` - Alpha bleeds between objects
+- `draw_set_halign() / draw_set_valign()` - Alignment bleeds between objects
+- `gpu_set_blendmode()` - Blend mode bleeds between objects
+
+**Rule of Thumb**: Any `draw_set_*()` or `gpu_set_*()` function affects GLOBAL state and must be set explicitly in each draw event.
+
+---
+
 ## Event Order Confusion
 
 ### Problem: Variables Not Initialized Yet
 
-**Symptom**: "Undefined variable" errors, wrong initial values
+**Symptom**: "Undefined variable" errors, wrong initial values, objects trying to access globals that don't exist yet
 
-**Cause**: Accessing variables before Create event runs
+**Cause**: Misunderstanding when Room Creation Code executes relative to Create Events
 
-**Solution**: Understand event order:
+**Official Order** ([GameMaker Event Order](https://manual.gamemaker.io/lts/en/The_Asset_Editors/Object_Properties/Event_Order.htm)):
 
-**First Frame Event Order**:
-1. **Room Creation Code** (runs once when room starts)
-2. **Create Event** (all instances)
-3. **Begin Step Event**
-4. **Step Event**
-5. **End Step Event**
-6. **Draw Begin Event**
-7. **Draw Event**
-8. **Draw End Event**
-9. **Draw GUI Begin Event**
-10. **Draw GUI Event**
-11. **Draw GUI End Event**
+---
 
-**Wrong**:
+#### Room Entry Event Sequence
+
+When entering a room:
+
+**Step 1-2: For EACH instance (in Instance Creation Order):**
+1. **Create Event** - Object variables initialize, Create Event executes
+2. **Instance Creation Code** - Per-instance code set in IDE (if exists)
+
+**Step 3-5: After ALL instances complete Step 1-2:**
+3. **Game Start Event** - First room only (or after `game_restart()`)
+4. **Room Creation Code** - RoomCreationCode.gml executes
+5. **Room Start Event** - All instances' Room Start (Other_4)
+
+---
+
+#### Every Step/Frame Event Sequence
+
+After initialization, every frame:
+
+1. **Begin Step Event**
+2. **Timelines**
+3. **Time Sources** (ticks/callbacks)
+4. **Alarms**
+5. **Keyboard/Mouse/Gesture Events**
+6. **Step Event**
+7. **Path Ended/Animation Ended/Room End**
+8. **End Step Event**
+9. **Pre-Draw Event**
+10. **Draw Begin Event**
+11. **Draw Event**
+12. **Draw End Event**
+13. **Post-Draw Event**
+14. **Draw GUI Begin Event**
+15. **Draw GUI Event**
+16. **Draw GUI End Event**
+
+---
+
+### Common Mistakes
+
+**❌ WRONG**: Setting globals in Room Creation Code for Create Events to read
 ```gml
 // Room Creation Code
-objPlayer.health = 100;  // ERROR: objPlayer Create event hasn't run yet!
+global.dungeon_id = "cave_level_1";  // TOO LATE!
+
+// objDungeonGenerator Create Event (runs BEFORE Room Creation Code!)
+var _id = global.dungeon_id;  // ERROR: Not set yet!
 ```
 
-**Correct**:
+**✅ CORRECT**: Set globals BEFORE entering room
 ```gml
-// Room Creation Code
-with (objPlayer) {
-    health = 100;  // OK if objPlayer already exists
-}
+// Before room_goto()
+global.dungeon_id = "cave_level_1";
+room_goto(rmGameplay);
 
-// Or use instance_create_depth then set variables
-var _player = instance_create_depth(x, y, 0, objPlayer);
-_player.health = 100;
+// objDungeonGenerator Create Event
+var _id = global.dungeon_id;  // OK: Set before room entered
+```
+
+**✅ ALSO CORRECT**: Use persistent object
+```gml
+// objController (persistent) - survives room transitions
+global.dungeon_id = "cave_level_1";
+
+// Later, in any room
+room_goto(rmGameplay);  // Global already set by persistent object
+```
+
+---
+
+### Event Timing Best Practices
+
+**Begin Step**: Use for input/decisions BEFORE game logic
+```gml
+// Begin Step: Process input
+if (keyboard_check_pressed(vk_space)) {
+    wants_to_jump = true;
+}
+```
+
+**Step**: Use for main game logic
+```gml
+// Step: Apply jump
+if (wants_to_jump && on_ground) {
+    vspeed = -jump_power;
+    wants_to_jump = false;
+}
+```
+
+**End Step**: Use for cleanup/camera AFTER game logic
+```gml
+// End Step: Camera follows player (after player moved)
+camera_x = objPlayer.x - (camera_width / 2);
+camera_y = objPlayer.y - (camera_height / 2);
+```
+
+**Draw GUI**: Use for HUD (fixed screen position)
+```gml
+// Draw GUI: Health bar always top-left
+draw_sprite(sprHealthBar, 0, 10, 10);
 ```
 
 ---
