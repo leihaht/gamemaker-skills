@@ -342,6 +342,27 @@ var _str = string_join("", _parts);
 instance_create_depth(x, y, depth, obj);
 instance_create_layer(x, y, layer, obj);
 
+// Create Instance with Initial Variables (before Create event)
+instance_create_depth(x, y, depth, obj, {
+    speed: 10,
+    direction: 45,
+    damage: 5
+});
+
+instance_create_layer(x, y, layer, obj, {
+    target: objPlayer,
+    patrol_speed: 2
+});
+
+// Example: Bullet initialization (cleaner than with/other)
+var _bullet = instance_create_depth(x, y, -100, objBullet, {
+    speed: shoot_speed,
+    direction: image_angle,
+    owner: id  // Who fired the bullet
+});
+
+// Note: Variables set BEFORE Create event runs (accessible immediately)
+
 // Destroy
 instance_destroy();
 instance_destroy(id);

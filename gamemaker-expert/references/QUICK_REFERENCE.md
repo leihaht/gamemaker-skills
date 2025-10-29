@@ -593,7 +593,12 @@ string_lower(str)                     // Lowercase
 ### Instance
 
 ```gml
-instance_create_depth(x, y, depth, obj)  // Create instance
+instance_create_depth(x, y, depth, obj, [vars])  // Create instance (vars = optional struct)
+instance_create_layer(x, y, layer, obj, [vars])  // Create on layer (vars = optional struct)
+
+// Example: Pass variables before Create event
+instance_create_depth(x, y, -100, objBullet, { speed: 10, direction: 45 })
+
 instance_destroy()                        // Destroy self
 instance_destroy(id)                      // Destroy specific instance
 instance_exists(obj)                      // Check if exists
