@@ -45,6 +45,40 @@ https://manual.gamemaker.io/monthly/en/
 - Checking latest syntax changes for your IDE version
 - Detailed explanations of GameMaker features
 
+### Additional References
+
+**For advanced architectural guidance:**
+
+- **Architecture Patterns**: [references/ARCHITECTURE_PATTERNS.md](references/ARCHITECTURE_PATTERNS.md)
+  - GameMaker-specific patterns (Service Locator, Command Pattern, Event-Driven Flow)
+  - SOLID principles adapted for GML
+  - Encapsulation patterns with manager constructors
+  - Performance patterns and anti-patterns
+- **Manager Constructor Guide**: [references/MANAGER_CONSTRUCTOR_GUIDE.md](references/MANAGER_CONSTRUCTOR_GUIDE.md)
+  - Step-by-step guide for creating manager constructors
+  - Public API design patterns
+  - Reference exposure pattern for backwards compatibility
+  - Cleanup responsibilities and testing strategies
+- **Built-in Variables**: [references/BUILT_IN_VARIABLES.md](references/BUILT_IN_VARIABLES.md)
+  - Complete list of GameMaker reserved variables
+  - Position, sprites, physics, paths, timelines categories
+  - Deprecated globals (`health`, `score`, `lives`)
+  - Safe alternatives and validation checklist
+- **GML Reference**: [references/GML_REFERENCE.md](references/GML_REFERENCE.md)
+  - Language syntax, operators, data types
+- **Common Pitfalls**: [references/COMMON_PITFALLS.md](references/COMMON_PITFALLS.md)
+  - Frequent mistakes and solutions
+- **Quick Reference**: [references/QUICK_REFERENCE.md](references/QUICK_REFERENCE.md)
+  - Cheat sheet for common patterns
+
+**When to use these references:**
+- Designing manager constructors for game-wide state
+- Avoiding conflicts with GameMaker built-in variables
+- Implementing encapsulation patterns in GML
+- Understanding `__` prefix convention for pseudo-private members
+- Learning SOLID principles in GameMaker context
+- Finding architectural patterns for maintainable code
+
 ## Core GameMaker Workflows
 
 ### Object Creation Workflow (CRITICAL)
@@ -669,6 +703,14 @@ This skill includes comprehensive reference documentation:
 - Code patterns for common tasks (inventory, state machines, dialogue, save/load, camera systems)
 - Struct vs Object decision guidance
 - Constructor patterns and method variables
+
+**[ARCHITECTURE_PATTERNS.md](references/ARCHITECTURE_PATTERNS.md)** (~500 lines)
+- GameMaker-specific architectural patterns (Service Locator, Command Pattern, Event-Driven Flow, Procedural Logic, Data-Driven Design)
+- Why NOT MVC/MVP for game engines (event-driven vs request/response architecture)
+- SOLID principles in GML context (SRP, OCP, LSP, ISP, DIP with code examples)
+- Design principles (DRY, KISS, YAGNI)
+- Performance patterns (hot path optimization, struct vs ds_map, lookup maps)
+- Anti-patterns to avoid (global abuse, deep hierarchies, function redefinition)
 
 **[COMMON_PITFALLS.md](references/COMMON_PITFALLS.md)** (~800 lines)
 - Object creation issues (missing .yy, missing .yyp registration, wrong event names)
