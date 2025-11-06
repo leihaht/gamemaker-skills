@@ -326,16 +326,35 @@ var _button = new UIButton({
 
 **Root Cause**: In bound methods, `other` refers to the **previous scope when the method executes**, NOT the instance that created it.
 
-**Solution**: Capture the instance reference explicitly in the binding struct:
+**Solution**: Capture the instance ID (not `self`) with defensive checks:
 
 ```gml
-// ✅ CORRECT: Capture self as a named reference
+// ⚠️ PROBLEMATIC: self can become invalid if instance recreated
 var _button = new UIButton({
     on_click: method({ui: self}, function() {
-        ui.refresh();  // Works: ui captured at creation time
+        ui.refresh();  // Can fail if ui instance destroyed/recreated
+    })
+});
+
+// ✅ CORRECT: Use instance ID with defensive check
+var _button = new UIButton({
+    on_click: method({ui_id: id}, function() {
+        if (!instance_exists(ui_id)) {
+            show_debug_message("WARNING: Instance destroyed");
+            return;
+        }
+
+        var _ui = ui_id;
+        _ui.refresh();  // Safe: id is stable numeric reference
     })
 });
 ```
+
+**Why `id` is better than `self`:**
+- Instance ID (`id`) is a stable numeric reference that doesn't change with context
+- `self` changes based on execution scope (can become invalid)
+- `instance_exists()` provides defensive guard against destroyed instances
+- More explicit about instance ownership
 
 **Real-World Example** (from character creation UI):
 ```gml
@@ -348,11 +367,26 @@ var _plus_btn = new UIButton({
     })
 });
 
-// ✅ CORRECT: Capture ui reference
+// ⚠️ PROBLEMATIC: self becomes <unknown_object> when buttons recreated
 var _plus_btn = new UIButton({
     on_click: method({stat_key: _stat_key, ui: self}, function() {
-        if (ui.stat_points_remaining > 0) {  // Works!
+        if (ui.stat_points_remaining > 0) {  // Fails after rebuild_stats_page_buttons()
             ui.stat_points_remaining--;
+        }
+    })
+});
+
+// ✅ CORRECT: Use instance ID with defensive check
+var _plus_btn = new UIButton({
+    on_click: method({stat_key: _stat_key, ui_id: id}, function() {
+        if (!instance_exists(ui_id)) {
+            show_debug_message("WARNING: objCharacterCreationUI destroyed");
+            return;
+        }
+
+        var _ui = ui_id;
+        if (_ui.stat_points_remaining > 0) {
+            _ui.stat_points_remaining--;
         }
     })
 });
@@ -363,9 +397,14 @@ var _plus_btn = new UIButton({
 - Async callbacks (HTTP, file operations)
 - Any method that executes later in a different context
 
-**Best Practice**: Always capture `self` explicitly in callback bindings:
+**Best Practice**: Always capture instance ID (not `self`) in callback bindings:
 ```gml
-method({owner: self}, function() { owner.doSomething(); })
+// ✅ Use instance ID with defensive check
+method({owner_id: id}, function() {
+    if (!instance_exists(owner_id)) return;
+    var _owner = owner_id;
+    _owner.doSomething();
+})
 ```
 
 **Reference**:

@@ -712,7 +712,7 @@ with (objEnemy) {
 
 **⚠️ CRITICAL: Bound Method Gotcha**
 
-In bound methods (callbacks), `other` does NOT automatically refer to the instance that created the method. Use closure capture instead:
+In bound methods (callbacks), `other` does NOT automatically refer to the instance that created the method. Use instance ID capture with defensive checks:
 
 ```gml
 // ❌ WRONG: other doesn't work reliably in callbacks
@@ -720,11 +720,28 @@ on_click: method({key: _key}, function() {
     other.stat_points_remaining--;  // ERROR: other is wrong scope!
 })
 
-// ✅ CORRECT: Capture reference explicitly
+// ⚠️ PROBLEMATIC: self can become invalid if instance recreated
 on_click: method({key: _key, ui: self}, function() {
-    ui.stat_points_remaining--;  // Works: ui is captured at creation
+    ui.stat_points_remaining--;  // Can fail if ui instance destroyed/recreated
+})
+
+// ✅ CORRECT: Use instance ID with defensive check
+on_click: method({key: _key, ui_id: id}, function() {
+    if (!instance_exists(ui_id)) {
+        show_debug_message("WARNING: Instance destroyed");
+        return;
+    }
+
+    var _ui = ui_id;
+    _ui.stat_points_remaining--;  // Safe: id is stable numeric reference
 })
 ```
+
+**Why `id` is better than `self` for callbacks:**
+- Instance ID (`id`) is a stable numeric reference that doesn't change with context
+- `self` changes based on execution scope (can become invalid)
+- `instance_exists()` provides defensive guard against destroyed instances
+- More explicit about instance ownership
 
 **When other changes:**
 - Inside `with()` blocks: other = calling instance/struct
