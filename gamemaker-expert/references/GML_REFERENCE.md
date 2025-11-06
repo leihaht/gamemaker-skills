@@ -679,6 +679,71 @@ with (objEnemy) {
 
 ---
 
+### Instance Keywords (self, other, all, noone)
+
+#### self
+- Refers to the current instance executing the code
+- Always available in all contexts
+- Example: `self.hp -= 10;`
+
+#### other
+**Two distinct behaviors:**
+
+1. **Collision Events ONLY**: Refers to the colliding instance
+2. **Scope-changing contexts**: Refers to previous scope before self changed
+
+**Collision Event Usage:**
+```gml
+// objPlayer Collision with objBullet
+var _damage = other.damage;  // other = objBullet instance
+hp -= _damage;
+instance_destroy(other);  // Destroy the bullet
+```
+
+**with() Block Usage:**
+```gml
+// objPlayer executing with()
+with (objEnemy) {
+    // self = each objEnemy
+    // other = objPlayer (calling instance)
+    var _dir = point_direction(x, y, other.x, other.y);
+}
+```
+
+**⚠️ CRITICAL: Bound Method Gotcha**
+
+In bound methods (callbacks), `other` does NOT automatically refer to the instance that created the method. Use closure capture instead:
+
+```gml
+// ❌ WRONG: other doesn't work reliably in callbacks
+on_click: method({key: _key}, function() {
+    other.stat_points_remaining--;  // ERROR: other is wrong scope!
+})
+
+// ✅ CORRECT: Capture reference explicitly
+on_click: method({key: _key, ui: self}, function() {
+    ui.stat_points_remaining--;  // Works: ui is captured at creation
+})
+```
+
+**When other changes:**
+- Inside `with()` blocks: other = calling instance/struct
+- Bound method calls: other = instance that invoked the method
+- Unbound constructors: other = calling scope
+- Struct declarations: other = self (initializing scope)
+
+**Reference**: https://manual.gamemaker.io/monthly/en/GameMaker_Language/GML_Overview/Instance%20Keywords/other.htm
+
+#### all
+- Refers to ALL instances in the room
+- Example: `with (all) { x += 1; }`
+
+#### noone
+- Represents "no instance" (equivalent to -4)
+- Used for comparisons: `if (target == noone) { ... }`
+
+---
+
 ## Room & Game Control
 
 ### Room Functions

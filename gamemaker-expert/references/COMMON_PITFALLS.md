@@ -308,6 +308,72 @@ health = 100;                  // Instance variable (intentional)
 
 ---
 
+### Problem: Using "other" in Callbacks/Bound Methods
+
+**Symptom**: "Variable X.property not set before reading it" when accessing `other.property` in a callback
+
+**Cause**: Assuming `other` refers to the instance that created a callback. In bound methods, `other` refers to the **previous scope when the method executes**, NOT the instance that created it. The `other` keyword only has special meaning in Collision events.
+
+**Example of the Problem**:
+```gml
+// objUI creating a button callback
+var _button = new UIButton({
+    on_click: method({}, function() {
+        other.refresh();  // ❌ ERROR: other doesn't point to objUI!
+    })
+});
+```
+
+**Root Cause**: In bound methods, `other` refers to the **previous scope when the method executes**, NOT the instance that created it.
+
+**Solution**: Capture the instance reference explicitly in the binding struct:
+
+```gml
+// ✅ CORRECT: Capture self as a named reference
+var _button = new UIButton({
+    on_click: method({ui: self}, function() {
+        ui.refresh();  // Works: ui captured at creation time
+    })
+});
+```
+
+**Real-World Example** (from character creation UI):
+```gml
+// ❌ WRONG: other doesn't work in callbacks
+var _plus_btn = new UIButton({
+    on_click: method({stat_key: _stat_key}, function() {
+        if (other.stat_points_remaining > 0) {  // ERROR!
+            other.stat_points_remaining--;
+        }
+    })
+});
+
+// ✅ CORRECT: Capture ui reference
+var _plus_btn = new UIButton({
+    on_click: method({stat_key: _stat_key, ui: self}, function() {
+        if (ui.stat_points_remaining > 0) {  // Works!
+            ui.stat_points_remaining--;
+        }
+    })
+});
+```
+
+**When this matters:**
+- Callbacks passed to UI buttons, timers, event handlers
+- Async callbacks (HTTP, file operations)
+- Any method that executes later in a different context
+
+**Best Practice**: Always capture `self` explicitly in callback bindings:
+```gml
+method({owner: self}, function() { owner.doSomething(); })
+```
+
+**Reference**:
+- [GameMaker Manual: other keyword](https://manual.gamemaker.io/monthly/en/GameMaker_Language/GML_Overview/Instance%20Keywords/other.htm)
+- See also: GML_REFERENCE.md → Instance Keywords → other
+
+---
+
 ### Problem: Array Out of Bounds
 
 **Symptom**: Crash with "array index out of bounds" error
